@@ -49,6 +49,22 @@ coverage.xml
 *.py.cover
 .hypothesis/
 .pytest_cache/
+.pytest_tmp/
+pytest-cache-files-*/
+
+# Project data and generated artifacts
+data/raw/*.csv
+data/raw/_downloads/
+data/processed/*.jsonl
+outputs/logs/*.log
+outputs/models/*
+outputs/generations/*
+outputs/reports/*
+runs/
+!outputs/models/.gitkeep
+!outputs/generations/.gitkeep
+!outputs/reports/.gitkeep
+!outputs/logs/.gitkeep
 cover/
 
 # Translations

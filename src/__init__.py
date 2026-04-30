@@ -1,0 +1,1 @@
+"""Financial news generation package."""
