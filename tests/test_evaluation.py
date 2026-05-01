@@ -139,3 +139,52 @@ def test_financial_metrics_join_sentiment_with_market_direction() -> None:
     assert summary["generated_signal_coverage"] == 2 / 3
     assert summary["generated_directional_accuracy"] == 1.0
     assert 0 <= summary["real_news_directional_accuracy"] <= 1
+
+
+def test_financial_metrics_handles_interleaved_multi_ticker_dates() -> None:
+    semantic = pd.DataFrame(
+        [
+            {
+                "ticker": "SPY",
+                "date_t": "2024-02-29",
+                "date_t1": "2024-03-01",
+                "real_label": "positive",
+                "generated_label": "positive",
+            },
+            {
+                "ticker": "QQQ",
+                "date_t": "2024-01-01",
+                "date_t1": "2024-01-02",
+                "real_label": "negative",
+                "generated_label": "negative",
+            },
+            {
+                "ticker": "SPY",
+                "date_t": "2024-01-02",
+                "date_t1": "2024-01-03",
+                "real_label": "positive",
+                "generated_label": "positive",
+            },
+            {
+                "ticker": "QQQ",
+                "date_t": "2024-03-29",
+                "date_t1": "2024-04-01",
+                "real_label": "negative",
+                "generated_label": "negative",
+            },
+        ]
+    )
+    market = pd.DataFrame(
+        [
+            {"ticker": "SPY", "Date": "2024-01-03", "direction": 1, "return_1d": 0.01},
+            {"ticker": "SPY", "Date": "2024-03-01", "direction": 1, "return_1d": 0.01},
+            {"ticker": "QQQ", "Date": "2024-01-02", "direction": 0, "return_1d": -0.01},
+            {"ticker": "QQQ", "Date": "2024-04-01", "direction": 0, "return_1d": -0.01},
+        ]
+    )
+
+    metrics = build_financial_metrics(semantic, market)
+
+    assert len(metrics) == 4
+    assert metrics["generated_direction_correct"].all()
+    assert metrics["ticker"].tolist() == ["SPY", "QQQ", "SPY", "QQQ"]

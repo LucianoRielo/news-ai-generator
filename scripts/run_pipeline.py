@@ -10,8 +10,8 @@ from typing import Any
 import yaml
 
 from src.data.build_dataset import build_dataset, load_raw_data
-from src.data.download_market import download_market
-from src.data.download_news import download_news
+from src.data.download_market import download_market_for_tickers
+from src.data.download_news import download_news_for_tickers
 from src.evaluation.financial import evaluate_financial, summarize_financial
 from src.evaluation.semantic import evaluate_semantic, summarize_semantic
 from src.evaluation.textual import evaluate_textual, summarize_textual
@@ -21,6 +21,7 @@ from src.reporting.report import generate_report
 from src.utils.config import load_config
 from src.utils.logging import setup_logger
 from src.utils.runs import create_run_config
+from src.utils.tickers import get_config_tickers
 
 
 def main() -> None:
@@ -48,12 +49,23 @@ def main() -> None:
     error: str | None = None
 
     try:
-        stage_durations["download_data"] = timed(lambda: run_download_data(config, logger))
-        stage_durations["build_dataset"] = timed(lambda: run_build_dataset(config, logger))
-        stage_durations["train_model"] = timed(lambda: run_train_model(config, logger))
-        stage_durations["generate_predictions"] = timed(lambda: run_generate_predictions(config, logger))
-        summaries = run_evaluation(config, logger)
-        stage_durations["evaluate"] = summaries.pop("_duration")
+        stage_durations["download_data"] = timed_stage(
+            "download_data",
+            logger,
+            lambda: run_download_data(config, logger),
+        )
+        stage_durations["build_dataset"] = timed_stage(
+            "build_dataset",
+            logger,
+            lambda: run_build_dataset(config, logger),
+        )
+        stage_durations["train_model"] = timed_stage("train_model", logger, lambda: run_train_model(config, logger))
+        stage_durations["generate_predictions"] = timed_stage(
+            "generate_predictions",
+            logger,
+            lambda: run_generate_predictions(config, logger),
+        )
+        summaries = timed_evaluation(config, logger, stage_durations)
     except Exception as exc:
         status = "failed"
         error = repr(exc)
@@ -74,9 +86,14 @@ def main() -> None:
             error=error,
         )
         write_json(run_root / "run_summary.json", summary)
+        write_stage_timings(run_root / "stage_timings.csv", stage_durations)
         logger.info("Saved run summary to %s", run_root / "run_summary.json")
         if status == "completed":
-            stage_durations["generate_report"] = timed(lambda: run_report(config, run_root, logger))
+            stage_durations["generate_report"] = timed_stage(
+                "generate_report",
+                logger,
+                lambda: run_report(config, run_root, logger),
+            )
             completed_at = datetime.now()
             summary = build_run_summary(
                 run_id=run_id,
@@ -90,6 +107,7 @@ def main() -> None:
                 error=error,
             )
             write_json(run_root / "run_summary.json", summary)
+            write_stage_timings(run_root / "stage_timings.csv", stage_durations)
 
 
 def parse_args() -> argparse.Namespace:
@@ -102,10 +120,11 @@ def parse_args() -> argparse.Namespace:
 
 def run_download_data(config: dict[str, Any], logger: Any) -> None:
     data_config = config["data"]
-    news = download_news(
+    tickers = get_config_tickers(data_config)
+    news = download_news_for_tickers(
         dataset_name=data_config["dataset_name"],
         dataset_source=data_config["dataset_source"],
-        ticker=data_config["ticker"],
+        tickers=tickers,
         output_path=data_config["raw_news_path"],
         start_date=data_config["start_date"],
         end_date=data_config["end_date"],
@@ -114,8 +133,8 @@ def run_download_data(config: dict[str, Any], logger: Any) -> None:
 
     start_date = news["date"].min()
     end_date = news["date"].max()
-    market = download_market(
-        ticker=data_config["ticker"],
+    market = download_market_for_tickers(
+        tickers=tickers,
         start_date=start_date,
         end_date=end_date,
         output_path=data_config["raw_market_path"],
@@ -129,7 +148,7 @@ def run_build_dataset(config: dict[str, Any], logger: Any) -> None:
     splits = build_dataset(
         news_df=news_df,
         market_df=market_df,
-        ticker=data_config["ticker"],
+        ticker=get_config_tickers(data_config),
         k=data_config["context_window_days"],
         split_ratios=data_config["split_ratios"],
         output_dir=data_config["processed_dir"],
@@ -216,6 +235,13 @@ def run_evaluation(config: dict[str, Any], logger: Any) -> dict[str, Any]:
     }
 
 
+def timed_evaluation(config: dict[str, Any], logger: Any, stage_durations: dict[str, float]) -> dict[str, Any]:
+    summaries = run_evaluation(config, logger)
+    stage_durations["evaluate"] = summaries.pop("_duration")
+    logger.info("Finished stage evaluate in %.2f seconds", stage_durations["evaluate"])
+    return summaries
+
+
 def run_report(config: dict[str, Any], run_root: Path, logger: Any) -> None:
     report_path = config["evaluation"]["report_path"]
     generate_report(config=config, output_path=report_path, run_summary_path=run_root / "run_summary.json")
@@ -241,7 +267,8 @@ def build_run_summary(
         "completed_at": completed_at.isoformat(timespec="seconds"),
         "duration_seconds": (completed_at - started_at).total_seconds(),
         "stage_durations_seconds": stage_durations,
-        "ticker": config["data"]["ticker"],
+        "tickers": get_config_tickers(config["data"]),
+        "ticker": config["data"].get("ticker"),
         "base_model": config["model"]["base_model"],
         "model_output_dir": config["model"]["output_dir"],
         "processed_examples": count_processed_examples(config["data"]["processed_dir"]),
@@ -271,10 +298,27 @@ def write_json(output_path: Path, payload: dict[str, Any]) -> None:
         json.dump(payload, file, indent=2)
 
 
+def write_stage_timings(output_path: Path, stage_durations: dict[str, float]) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    total = sum(stage_durations.values())
+    with output_path.open("w", encoding="utf-8") as file:
+        file.write("stage,duration_seconds\n")
+        for stage, duration in stage_durations.items():
+            file.write(f"{stage},{duration:.6f}\n")
+        file.write(f"total_recorded,{total:.6f}\n")
+
+
 def timed(callback: Any) -> float:
     start = perf_counter()
     callback()
     return perf_counter() - start
+
+
+def timed_stage(stage_name: str, logger: Any, callback: Any) -> float:
+    logger.info("Starting stage %s", stage_name)
+    duration = timed(callback)
+    logger.info("Finished stage %s in %.2f seconds", stage_name, duration)
+    return duration
 
 
 if __name__ == "__main__":

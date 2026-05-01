@@ -9,6 +9,7 @@ import yfinance as yf
 
 MARKET_COLUMNS = [
     "Date",
+    "ticker",
     "Open",
     "High",
     "Low",
@@ -41,8 +42,37 @@ def download_market(
     market = _flatten_yfinance_columns(market).reset_index()
 
     featured = add_market_features(market, start_date=start_date, end_date=end_date)
+    featured["ticker"] = ticker.upper()
+    featured = featured[MARKET_COLUMNS]
     featured.to_csv(output, index=False)
     return featured
+
+
+def download_market_for_tickers(
+    tickers: list[str],
+    start_date: str,
+    end_date: str,
+    output_path: str | Path,
+) -> pd.DataFrame:
+    frames = [
+        download_market_frame(ticker=ticker, start_date=start_date, end_date=end_date)
+        for ticker in tickers
+    ]
+    market = pd.concat(frames, ignore_index=True).sort_values(["ticker", "Date"]).reset_index(drop=True)
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    market.to_csv(output, index=False)
+    return market
+
+
+def download_market_frame(ticker: str, start_date: str, end_date: str) -> pd.DataFrame:
+    market = yf.download(ticker, start=start_date, end=end_date, progress=False, auto_adjust=False)
+    if market.empty:
+        raise RuntimeError(f"yfinance returned no rows for {ticker}")
+    market = _flatten_yfinance_columns(market).reset_index()
+    featured = add_market_features(market, start_date=start_date, end_date=end_date)
+    featured["ticker"] = ticker.upper()
+    return featured[MARKET_COLUMNS]
 
 
 def add_market_features(
@@ -76,7 +106,8 @@ def add_market_features(
     df["SMA50"] = df["Close"].rolling(50, min_periods=50).mean()
     df["Date"] = df["Date"].dt.strftime("%Y-%m-%d")
 
-    return df[MARKET_COLUMNS].reset_index(drop=True)
+    columns = [column for column in MARKET_COLUMNS if column in df.columns]
+    return df[columns].reset_index(drop=True)
 
 
 def _rsi(close: pd.Series, window: int = 14) -> pd.Series:

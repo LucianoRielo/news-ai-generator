@@ -14,9 +14,12 @@ import torch
 import matplotlib.pyplot as plt
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
+from src.utils.tickers import prediction_ticker
+
 
 SENTIMENT_LABELS = ["negative", "neutral", "positive"]
 SEMANTIC_COLUMNS = [
+    "ticker",
     "date_t",
     "date_t1",
     "real_negative",
@@ -125,6 +128,7 @@ def build_semantic_metrics(
         rows.append(
             {
                 "date_t": prediction["date_t"],
+                "ticker": prediction_ticker(prediction),
                 "date_t1": prediction["date_t1"],
                 "real_negative": real_probs["negative"],
                 "real_neutral": real_probs["neutral"],

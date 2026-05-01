@@ -85,18 +85,18 @@ welcome-mr-nlp-forecasting/
 
 **Dataset principal: FNSPID (Financial News and Stock Price Integration Dataset)** desde Hugging Face (`beachside1234/FNSPID`).
 
-**Activo elegido para el MVP: `SPY`.** El proyecto queda planteado como generación de narrativa de mercado asociada al S&P 500 ETF, no como noticia corporativa de una empresa puntual.
+**Activos elegidos para el pipeline multi-ETF: `SPY` y `QQQ`.** El proyecto queda planteado como generación de narrativa de mercado asociada a ETFs líquidos de índices amplios, no como noticia corporativa de una empresa puntual.
 
 **Por qué este dataset/activo:**
 
 - FNSPID tiene noticias con timestamp y ticker asociado.
-- `SPY` tiene cobertura suficiente para un experimento end-to-end: 7196 noticias normalizadas entre `2017-08-18` y `2023-12-16`.
-- El precio objetivo se obtiene con `yfinance` para el mismo activo (`SPY`), lo que mantiene alineadas noticias y mercado.
-- Usar un solo activo mantiene el scope controlado y evita mezclar narrativas de empresas distintas.
+- `SPY` funciona como baseline inicial y `QQQ` amplía la muestra manteniendo una narrativa de mercado/ETF.
+- El precio objetivo se obtiene con `yfinance` para cada activo, lo que mantiene alineadas noticias y mercado por `(ticker, date)`.
+- Usar ETFs mantiene el scope controlado y evita mezclar demasiadas narrativas corporativas individuales.
 
 **Decisión técnica:** para FNSPID no usamos streaming fila por fila, porque es lento para rangos chicos. El downloader lee los Parquet de `Stock_news/` con filtros por `Stock_symbol` y `Date`.
 
-**Extensión futura:** cuando el pipeline funcione completo para `SPY`, se puede generalizar a varios tickers agregando una lista `tickers` en config y joineando mercado por `(ticker, date)`.
+**Decisión técnica multi-ETF:** `config/config.yaml` mantiene `ticker: SPY` por compatibilidad, pero el pipeline usa `tickers: [SPY, QQQ]` cuando la lista está presente. El dataset y la evaluación financiera separan todo por `(ticker, date)`.
 
 ---
 
@@ -558,9 +558,10 @@ python -m scripts.run_pipeline
 Cada ejecución crea una carpeta nueva en `runs/` con fecha/hora, ticker y modelo:
 
 ```text
-runs/YYYY-MM-DD_HH-MM-SS_spy_gpt2/
+runs/YYYY-MM-DD_HH-MM-SS_spy-qqq_gpt2/
   config.yaml
   run_summary.json
+  stage_timings.csv
   logs/pipeline.log
   data/raw/news.csv
   data/raw/market.csv
@@ -575,6 +576,8 @@ runs/YYYY-MM-DD_HH-MM-SS_spy_gpt2/
   reports/semantic_confusion_matrix.png
   reports/financial_confusion_matrix.png
 ```
+
+`run_summary.json` guarda las métricas agregadas y `stage_timings.csv` guarda el tiempo de ejecución de cada etapa (`download_data`, `build_dataset`, `train_model`, `generate_predictions`, `evaluate`, `generate_report`) para comparar experimentos.
 
 Para nombrar una ejecución experimental:
 

@@ -8,9 +8,10 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from src.model.train import load_jsonl
+from src.utils.tickers import prediction_ticker
 
 
-PREDICTION_FIELDS = ["date_t", "date_t1", "prompt", "real_news", "generated_news"]
+PREDICTION_FIELDS = ["ticker", "date_t", "date_t1", "prompt", "real_news", "generated_news"]
 
 
 def generate_predictions(
@@ -38,6 +39,7 @@ def generate_predictions(
         )
         predictions.append(
             {
+                "ticker": prediction_ticker(example),
                 "date_t": example["date_t"],
                 "date_t1": example["date_t1"],
                 "prompt": example["prompt"],

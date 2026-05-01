@@ -10,6 +10,7 @@ import pandas as pd
 
 
 FINANCIAL_COLUMNS = [
+    "ticker",
     "date_t",
     "date_t1",
     "target_market_date",
@@ -62,20 +63,19 @@ def build_financial_metrics(semantic: pd.DataFrame, market: pd.DataFrame) -> pd.
     semantic_df["prediction_order"] = range(len(semantic_df))
     semantic_df["date_t1"] = pd.to_datetime(semantic_df["date_t1"]).dt.strftime("%Y-%m-%d")
     market_df["Date"] = pd.to_datetime(market_df["Date"]).dt.strftime("%Y-%m-%d")
+    if "ticker" not in semantic_df.columns:
+        semantic_df["ticker"] = ""
+    if "ticker" not in market_df.columns:
+        market_df["ticker"] = semantic_df["ticker"].iloc[0] if not semantic_df.empty else ""
+    semantic_df["ticker"] = semantic_df["ticker"].fillna("").astype(str).str.upper()
+    market_df["ticker"] = market_df["ticker"].fillna("").astype(str).str.upper()
     market_df["return_1d"] = pd.to_numeric(market_df["return_1d"], errors="coerce")
     market_df["direction"] = pd.to_numeric(market_df["direction"], errors="coerce")
 
     semantic_df["target_timestamp"] = pd.to_datetime(semantic_df["date_t1"])
     market_df["market_timestamp"] = pd.to_datetime(market_df["Date"])
 
-    merged = pd.merge_asof(
-        semantic_df.sort_values("target_timestamp"),
-        market_df[["market_timestamp", "Date", "direction", "return_1d"]].sort_values("market_timestamp"),
-        left_on="target_timestamp",
-        right_on="market_timestamp",
-        direction="forward",
-        tolerance=pd.Timedelta(days=3),
-    )
+    merged = _merge_next_market_day(semantic_df, market_df)
     merged = merged.dropna(subset=["direction", "return_1d"])
     merged = merged.sort_values("prediction_order").reset_index(drop=True)
     merged["target_market_date"] = merged["Date"]
@@ -93,6 +93,29 @@ def build_financial_metrics(semantic: pd.DataFrame, market: pd.DataFrame) -> pd.
     )
 
     return merged[FINANCIAL_COLUMNS]
+
+
+def _merge_next_market_day(semantic_df: pd.DataFrame, market_df: pd.DataFrame) -> pd.DataFrame:
+    merged_frames = []
+    market_columns = ["market_timestamp", "Date", "direction", "return_1d"]
+    for ticker, ticker_semantic in semantic_df.groupby("ticker", sort=False):
+        ticker_market = market_df[market_df["ticker"] == ticker]
+        if ticker_market.empty:
+            continue
+        merged_frames.append(
+            pd.merge_asof(
+                ticker_semantic.sort_values("target_timestamp"),
+                ticker_market[market_columns].sort_values("market_timestamp"),
+                left_on="target_timestamp",
+                right_on="market_timestamp",
+                direction="forward",
+                tolerance=pd.Timedelta(days=3),
+            )
+        )
+
+    if not merged_frames:
+        return pd.DataFrame(columns=[*semantic_df.columns, "Date", "direction", "return_1d"])
+    return pd.concat(merged_frames, ignore_index=True)
 
 
 def summarize_financial(metrics: pd.DataFrame) -> dict[str, float]:
@@ -141,7 +164,7 @@ def plot_confusion_matrix(metrics: pd.DataFrame, output_path: str | Path) -> Non
     ax.set_xticks(range(len(labels)), labels=["short", "long"])
     ax.set_yticks(range(len(labels)), labels=["down", "up"])
     ax.set_xlabel("Generated signal")
-    ax.set_ylabel("Actual SPY direction")
+    ax.set_ylabel("Actual direction")
 
     for row_index in range(len(labels)):
         for column_index in range(len(labels)):

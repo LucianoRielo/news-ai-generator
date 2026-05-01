@@ -77,3 +77,64 @@ def test_build_dataset_writes_temporal_splits() -> None:
     assert max(row["date_t1"] for row in splits["val"]) < min(row["date_t1"] for row in splits["test"])
 
     shutil.rmtree(output_dir)
+
+
+def test_build_dataset_keeps_tickers_separate() -> None:
+    output_dir = ROOT / "data" / "processed" / "test_tmp_multi"
+    if output_dir.exists():
+        shutil.rmtree(output_dir)
+
+    rows = []
+    market_rows = []
+    for ticker in ["SPY", "QQQ"]:
+        for day in range(1, 5):
+            date = f"2024-01-0{day}"
+            rows.append(
+                {
+                    "date": date,
+                    "ticker": ticker,
+                    "headline": f"{ticker} headline {day}",
+                    "body": "",
+                    "source": "x",
+                }
+            )
+            market_rows.append(
+                {
+                    "Date": date,
+                    "ticker": ticker,
+                    "Open": 100,
+                    "High": 101,
+                    "Low": 99,
+                    "Close": 100 + day,
+                    "Volume": 1000,
+                    "return_1d": 0.01,
+                    "return_5d": 0.02,
+                    "volume_ratio": 1.0,
+                    "direction": 1,
+                    "RSI": 55,
+                    "MACD": 0.1,
+                    "SMA20": 100,
+                    "SMA50": 100,
+                }
+            )
+
+    splits = build_dataset(
+        news_df=pd.DataFrame(rows),
+        market_df=pd.DataFrame(market_rows),
+        ticker=["SPY", "QQQ"],
+        k=2,
+        split_ratios={"train": 0.5, "val": 0.25, "test": 0.25},
+        output_dir=output_dir,
+        max_news_per_day=1,
+        max_text_chars=80,
+        max_completion_news=1,
+        include_body=False,
+    )
+
+    examples = [example for split in splits.values() for example in split]
+    assert {example["ticker"] for example in examples} == {"SPY", "QQQ"}
+    assert all(f"[TICKER: {example['ticker']}]" in example["prompt"] for example in examples)
+    assert not any("QQQ headline" in example["prompt"] for example in examples if example["ticker"] == "SPY")
+    assert not any("SPY headline" in example["prompt"] for example in examples if example["ticker"] == "QQQ")
+
+    shutil.rmtree(output_dir)

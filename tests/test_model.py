@@ -82,6 +82,7 @@ def test_generate_one_returns_only_generated_text() -> None:
 def test_write_predictions_jsonl() -> None:
     path = ROOT / "outputs" / "generations" / "test_predictions.jsonl"
     prediction = {
+        "ticker": "SPY",
         "date_t": "2024-01-01",
         "date_t1": "2024-01-02",
         "prompt": "prompt",

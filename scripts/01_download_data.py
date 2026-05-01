@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from src.data.download_news import download_news
-from src.data.download_market import download_market
+from src.data.download_news import download_news_for_tickers
+from src.data.download_market import download_market_for_tickers
 from src.utils.config import load_config
 from src.utils.logging import setup_logger
+from src.utils.tickers import get_config_tickers
 
 
 def main() -> None:
@@ -15,10 +16,11 @@ def main() -> None:
     )
 
     data_config = config["data"]
-    news = download_news(
+    tickers = get_config_tickers(data_config)
+    news = download_news_for_tickers(
         dataset_name=data_config["dataset_name"],
         dataset_source=data_config["dataset_source"],
-        ticker=data_config["ticker"],
+        tickers=tickers,
         output_path=data_config["raw_news_path"],
         start_date=data_config["start_date"],
         end_date=data_config["end_date"],
@@ -27,8 +29,8 @@ def main() -> None:
 
     start_date = news["date"].min()
     end_date = news["date"].max()
-    market = download_market(
-        ticker=data_config["ticker"],
+    market = download_market_for_tickers(
+        tickers=tickers,
         start_date=start_date,
         end_date=end_date,
         output_path=data_config["raw_market_path"],
@@ -36,7 +38,7 @@ def main() -> None:
     logger.info(
         "Saved %s market rows for %s between %s and %s to %s",
         len(market),
-        data_config["ticker"],
+        ",".join(tickers),
         start_date,
         end_date,
         data_config["raw_market_path"],

@@ -8,8 +8,11 @@ import pandas as pd
 from bert_score import score as bert_score
 from rouge_score import rouge_scorer
 
+from src.utils.tickers import prediction_ticker
+
 
 TEXTUAL_COLUMNS = [
+    "ticker",
     "date_t",
     "date_t1",
     "rouge1",
@@ -52,6 +55,7 @@ def evaluate_textual(
         rows.append(
             {
                 "date_t": prediction["date_t"],
+                "ticker": prediction_ticker(prediction),
                 "date_t1": prediction["date_t1"],
                 "rouge1": rouge["rouge1"].fmeasure,
                 "rouge2": rouge["rouge2"].fmeasure,

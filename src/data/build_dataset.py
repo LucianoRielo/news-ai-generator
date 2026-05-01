@@ -9,14 +9,14 @@ from typing import Any
 import pandas as pd
 
 
-REQUIRED_EXAMPLE_FIELDS = ["prompt", "completion", "date_t", "date_t1"]
+REQUIRED_EXAMPLE_FIELDS = ["prompt", "completion", "date_t", "date_t1", "ticker"]
 MARKET_FEATURES = ["return_1d", "volume_ratio", "RSI"]
 
 
 def build_dataset(
     news_df: pd.DataFrame,
     market_df: pd.DataFrame,
-    ticker: str,
+    ticker: str | list[str],
     k: int,
     split_ratios: dict[str, float],
     output_dir: str | Path,
@@ -26,13 +26,40 @@ def build_dataset(
     include_body: bool = False,
 ) -> dict[str, list[dict[str, str]]]:
     """Build temporal prompt/completion splits for financial narrative modeling."""
-    news_by_day = _group_news_by_day(
-        news_df,
-        max_text_chars=max_text_chars,
-        include_body=include_body,
-    )
-    market_by_day = _prepare_market(market_df)
+    examples = []
+    for current_ticker in _as_ticker_list(ticker):
+        ticker_news = _filter_by_ticker(news_df, current_ticker, column="ticker")
+        ticker_market = _filter_by_ticker(market_df, current_ticker, column="ticker")
+        news_by_day = _group_news_by_day(
+            ticker_news,
+            max_text_chars=max_text_chars,
+            include_body=include_body,
+        )
+        market_by_day = _prepare_market(ticker_market)
+        examples.extend(
+            _build_examples_for_ticker(
+                ticker=current_ticker,
+                news_by_day=news_by_day,
+                market_by_day=market_by_day,
+                k=k,
+                max_news_per_day=max_news_per_day,
+                max_completion_news=max_completion_news,
+            )
+        )
 
+    splits = _temporal_split(examples, split_ratios)
+    _write_splits(splits, Path(output_dir))
+    return splits
+
+
+def _build_examples_for_ticker(
+    ticker: str,
+    news_by_day: dict[str, list[str]],
+    market_by_day: dict[str, dict[str, Any]],
+    k: int,
+    max_news_per_day: int,
+    max_completion_news: int,
+) -> list[dict[str, str]]:
     examples = []
     available_dates = sorted(news_by_day)
     for date_t in available_dates:
@@ -58,16 +85,14 @@ def build_dataset(
 
         examples.append(
             {
+                "ticker": ticker,
                 "prompt": prompt,
                 "completion": completion,
                 "date_t": date_t,
                 "date_t1": date_t1,
             }
         )
-
-    splits = _temporal_split(examples, split_ratios)
-    _write_splits(splits, Path(output_dir))
-    return splits
+    return examples
 
 
 def load_raw_data(news_path: str | Path, market_path: str | Path) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -159,7 +184,7 @@ def _temporal_split(
     if not examples:
         return {"train": [], "val": [], "test": []}
 
-    ordered = sorted(examples, key=lambda example: example["date_t1"])
+    ordered = sorted(examples, key=lambda example: (example["date_t1"], example.get("ticker", "")))
     total = len(ordered)
     train_end = int(total * split_ratios["train"])
     val_end = train_end + int(total * split_ratios["val"])
@@ -206,3 +231,15 @@ def _format_float(value: object) -> str:
     if pd.isna(number):
         return "NA"
     return f"{number:.2f}"
+
+
+def _as_ticker_list(ticker: str | list[str]) -> list[str]:
+    if isinstance(ticker, str):
+        return [ticker.upper()]
+    return [item.upper() for item in ticker]
+
+
+def _filter_by_ticker(df: pd.DataFrame, ticker: str, column: str) -> pd.DataFrame:
+    if column not in df.columns:
+        return df.copy()
+    return df[df[column].fillna("").astype(str).str.upper() == ticker.upper()].copy()

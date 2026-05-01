@@ -1,8 +1,9 @@
 # news-ai-generator
 
 Proyecto de NLP para fine-tunear GPT-2 en narrativas financieras de mercado. La
-configuracion inicial usa noticias asociadas a `SPY` en FNSPID y precios de SPY
-para generar la narrativa del dia `t+1` usando una ventana previa `t-k..t`.
+configuracion inicial usa noticias asociadas a `SPY` y `QQQ` en FNSPID y precios
+de esos ETFs para generar la narrativa del dia `t+1` usando una ventana previa
+`t-k..t`.
 
 ## Setup
 
@@ -21,9 +22,10 @@ Ese comando crea una carpeta nueva en `runs/` con fecha, ticker y modelo. Por
 ejemplo:
 
 ```text
-runs/2026-04-30_15-30-12_spy_gpt2/
+runs/2026-04-30_15-30-12_spy-qqq_gpt2/
   config.yaml
   run_summary.json
+  stage_timings.csv
   logs/pipeline.log
   data/raw/news.csv
   data/raw/market.csv
@@ -38,6 +40,9 @@ runs/2026-04-30_15-30-12_spy_gpt2/
   reports/semantic_confusion_matrix.png
   reports/financial_confusion_matrix.png
 ```
+
+`run_summary.json` guarda metricas agregadas y `stage_timings.csv` guarda el
+tiempo de cada etapa del pipeline para comparar experimentos.
 
 Para nombrar una ejecucion:
 

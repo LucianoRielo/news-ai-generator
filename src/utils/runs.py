@@ -6,6 +6,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from src.utils.tickers import get_config_tickers
+
 
 def create_run_config(
     base_config: dict[str, Any],
@@ -14,9 +16,11 @@ def create_run_config(
     now: datetime | None = None,
 ) -> tuple[str, Path, dict[str, Any]]:
     timestamp = (now or datetime.now()).strftime("%Y-%m-%d_%H-%M-%S")
+    tickers = get_config_tickers(base_config["data"])
+    tickers_slug = "-".join(_slugify(str(ticker)) for ticker in tickers)
     name_parts = [
         timestamp,
-        _slugify(base_config["data"]["ticker"]),
+        tickers_slug,
         _slugify(base_config["model"]["base_model"]),
     ]
     if run_name:

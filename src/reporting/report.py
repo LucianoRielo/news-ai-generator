@@ -6,6 +6,8 @@ from typing import Any
 
 import pandas as pd
 
+from src.utils.tickers import prediction_ticker
+
 
 def generate_report(
     config: dict[str, Any],
@@ -50,6 +52,10 @@ def build_report_markdown(
     data = config["data"]
     model = config["model"]
     evaluation = config["evaluation"]
+    configured_tickers = data.get("tickers", [data["ticker"]])
+    configured_tickers_text = ", ".join(configured_tickers)
+    evaluated_tickers = _evaluated_tickers(predictions)
+    evaluated_tickers_text = ", ".join(evaluated_tickers) if evaluated_tickers else configured_tickers_text
     report_dir = Path(report_dir or evaluation["reports_dir"])
     processed_counts = _processed_counts(data["processed_dir"])
     textual_summary = _numeric_means(textual)
@@ -65,7 +71,7 @@ def build_report_markdown(
         "",
         (
             f"Este experimento fine-tunea `{model['base_model']}` para generar narrativas financieras "
-            f"de `{data['ticker']}` para el dia `t+1`, usando noticias y features de mercado de una "
+            f"de `{evaluated_tickers_text}` para el dia `t+1`, usando noticias y features de mercado de una "
             f"ventana previa de `{data['context_window_days']}` dias."
         ),
         "",
@@ -79,13 +85,27 @@ def build_report_markdown(
                 "",
             ]
         )
+        stage_durations = run_summary.get("stage_durations_seconds", {})
+        if stage_durations:
+            lines.extend(
+                [
+                    "Tiempos por etapa:",
+                    "",
+                    _markdown_table(
+                        [(stage, duration) for stage, duration in stage_durations.items()],
+                        headers=("Etapa", "Segundos"),
+                    ),
+                    "",
+                ]
+            )
 
     lines.extend(
         [
             "## Datos",
             "",
             f"- Dataset: `{data['dataset_name']}`",
-            f"- Activo: `{data['ticker']}`",
+            f"- Activos configurados: `{configured_tickers_text}`",
+            f"- Activos presentes en predicciones: `{evaluated_tickers_text}`",
             f"- Rango configurado: `{data['start_date']}` a `{data['end_date']}`",
             f"- Splits procesados: train={processed_counts.get('train', 0)}, val={processed_counts.get('val', 0)}, test={processed_counts.get('test', 0)}",
             f"- Predicciones evaluadas: {len(predictions)}",
@@ -191,7 +211,10 @@ def _select_examples(
     merged = pd.DataFrame(predictions)
     for frame in [textual, semantic, financial]:
         if not frame.empty:
-            merged = merged.merge(frame, on=["date_t", "date_t1"], how="left", suffixes=("", "_metric"))
+            merge_keys = ["date_t", "date_t1"]
+            if "ticker" in merged.columns and "ticker" in frame.columns:
+                merge_keys = ["ticker", *merge_keys]
+            merged = merged.merge(frame, on=merge_keys, how="left", suffixes=("", "_metric"))
 
     examples = []
     picks = [
@@ -210,6 +233,12 @@ def _select_examples(
     if not examples:
         examples.extend(_format_example("Ejemplo del test set", merged.iloc[0]))
     return examples
+
+
+def _evaluated_tickers(predictions: list[dict[str, Any]]) -> list[str]:
+    tickers = {prediction_ticker(prediction) for prediction in predictions}
+    tickers.discard("")
+    return sorted(tickers)
 
 
 def _format_example(title: str, row: pd.Series) -> list[str]:

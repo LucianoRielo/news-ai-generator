@@ -43,6 +43,32 @@ def download_news(
     return normalized
 
 
+def download_news_for_tickers(
+    dataset_name: str,
+    output_path: str | Path,
+    tickers: list[str],
+    dataset_source: str = "huggingface",
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> pd.DataFrame:
+    """Download FNSPID news for multiple tickers and save one normalized CSV."""
+    if dataset_source not in {"huggingface", "hf"} or not dataset_name.lower().endswith("fnspid"):
+        raise ValueError("This pipeline currently supports the FNSPID Hugging Face dataset only.")
+
+    frames = []
+    for ticker in tickers:
+        raw_df = _load_fnspid_news(dataset_name, ticker=ticker, start_date=start_date, end_date=end_date)
+        frames.append(normalize_news(raw_df, ticker=ticker, start_date=start_date, end_date=end_date))
+
+    normalized = pd.concat(frames, ignore_index=True)
+    normalized = normalized.drop_duplicates(subset=["date", "ticker", "headline", "body", "source"])
+    normalized = normalized.sort_values(["ticker", "date"]).reset_index(drop=True)
+    output = Path(output_path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    normalized.to_csv(output, index=False)
+    return normalized
+
+
 def normalize_news(
     df: pd.DataFrame,
     ticker: str,

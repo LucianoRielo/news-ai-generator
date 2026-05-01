@@ -7,6 +7,7 @@ import pytest
 
 from src.utils.logging import setup_logger
 from src.utils.runs import create_run_config
+from src.utils.tickers import get_config_tickers
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -42,6 +43,7 @@ def test_config_yaml_has_expected_keys() -> None:
         config = yaml.safe_load(file)
 
     assert config["data"]["ticker"]
+    assert get_config_tickers(config["data"]) == ["SPY", "QQQ"]
     assert config["data"]["context_window_days"] >= 1
     assert config["model"]["base_model"] in {"gpt2", "gpt2-medium"}
     assert config["model"]["max_length"] <= 1024

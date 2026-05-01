@@ -3,6 +3,7 @@ from __future__ import annotations
 from src.data.build_dataset import build_dataset, load_raw_data
 from src.utils.config import load_config
 from src.utils.logging import setup_logger
+from src.utils.tickers import get_config_tickers
 
 
 def main() -> None:
@@ -18,7 +19,7 @@ def main() -> None:
     splits = build_dataset(
         news_df=news_df,
         market_df=market_df,
-        ticker=data_config["ticker"],
+        ticker=get_config_tickers(data_config),
         k=data_config["context_window_days"],
         split_ratios=data_config["split_ratios"],
         output_dir=data_config["processed_dir"],
