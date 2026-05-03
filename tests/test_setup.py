@@ -53,6 +53,32 @@ def test_config_yaml_has_expected_keys() -> None:
     assert split_total == pytest.approx(1.0)
 
 
+def test_nvda_experiment_config_is_valid() -> None:
+    config_path = ROOT / "config" / "experiments" / "nvda.yaml"
+
+    with config_path.open("r", encoding="utf-8") as file:
+        config = yaml.safe_load(file)
+
+    assert get_config_tickers(config["data"]) == ["NVDA"]
+    assert config["data"]["ticker"] == "NVDA"
+    assert config["model"]["base_model"] == "gpt2"
+    assert config["model"]["max_length"] <= 1024
+    assert sum(config["data"]["split_ratios"].values()) == pytest.approx(1.0)
+
+
+def test_nvda_amd_experiment_config_is_valid() -> None:
+    config_path = ROOT / "config" / "experiments" / "nvda-amd.yaml"
+
+    with config_path.open("r", encoding="utf-8") as file:
+        config = yaml.safe_load(file)
+
+    assert get_config_tickers(config["data"]) == ["NVDA", "AMD"]
+    assert config["data"]["ticker"] == "NVDA"
+    assert config["model"]["base_model"] == "gpt2"
+    assert config["model"]["max_length"] <= 1024
+    assert sum(config["data"]["split_ratios"].values()) == pytest.approx(1.0)
+
+
 def test_logger_initializes_and_writes_file() -> None:
     log_dir = ROOT / "outputs" / "logs"
     logger = setup_logger(name="setup_test_logger", log_dir=log_dir, log_file="test.log")

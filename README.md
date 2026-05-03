@@ -50,6 +50,18 @@ Para nombrar una ejecucion:
 python -m scripts.run_pipeline --name more-epochs
 ```
 
+Para correr el experimento de NVDA solamente:
+
+```bash
+python -m scripts.run_pipeline --config config/experiments/nvda.yaml --name nvda-single
+```
+
+Para correr el experimento de semiconductores `NVDA + AMD`:
+
+```bash
+python -m scripts.run_pipeline --config config/experiments/nvda-amd.yaml --name nvda-amd
+```
+
 Para regenerar solo el reporte con los outputs actuales:
 
 ```bash

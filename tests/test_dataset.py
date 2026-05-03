@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_build_dataset_writes_temporal_splits() -> None:
-    output_dir = ROOT / "data" / "processed" / "test_tmp"
+    output_dir = ROOT / "outputs" / "reports" / "test_dataset_tmp"
     if output_dir.exists():
         shutil.rmtree(output_dir)
 
@@ -80,7 +80,7 @@ def test_build_dataset_writes_temporal_splits() -> None:
 
 
 def test_build_dataset_keeps_tickers_separate() -> None:
-    output_dir = ROOT / "data" / "processed" / "test_tmp_multi"
+    output_dir = ROOT / "outputs" / "reports" / "test_dataset_tmp_multi"
     if output_dir.exists():
         shutil.rmtree(output_dir)
 
