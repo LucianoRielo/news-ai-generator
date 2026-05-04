@@ -224,7 +224,7 @@ def _format_prompt(
         for item in news_by_day[context_date][:max_news_per_day]:
             lines.append(f"- {context_date}: {item}")
 
-    lines.extend(["", "[NEXT DAY OUTLOOK]", "[SENTIMENT]", "[DIRECTION]", "[NARRATIVE]"])
+    lines.extend(["", "[NEXT DAY OUTLOOK]", "Sentiment:"])
     return "\n".join(lines)
 
 

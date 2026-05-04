@@ -72,12 +72,10 @@ def test_build_dataset_writes_temporal_splits() -> None:
     assert "[PRICE_CHANGE:" in first["prompt"]
     assert "[PREVIOUS NEWS]" in first["prompt"]
     assert "[NEXT DAY OUTLOOK]" in first["prompt"]
-    assert "[SENTIMENT]" in first["prompt"]
-    assert "[DIRECTION]" in first["prompt"]
-    assert "[NARRATIVE]" in first["prompt"]
-    assert "[SENTIMENT=" in first["completion"]
-    assert "[DIRECTION=" in first["completion"]
-    assert "[NARRATIVE]" in first["completion"]
+    assert first["prompt"].endswith("Sentiment:")
+    assert first["completion"].startswith(" ")
+    assert "Direction:" in first["completion"]
+    assert "News:" in first["completion"]
     assert first["target_sentiment_label"] in {"negative", "neutral", "positive"}
     assert first["target_direction_label"] in {"down", "flat", "up"}
     assert first["completion"]

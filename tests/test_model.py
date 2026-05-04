@@ -5,7 +5,7 @@ from pathlib import Path
 
 import torch
 
-from src.model.generate import PREDICTION_FIELDS, generate_one, write_predictions
+from src.model.generate import PREDICTION_FIELDS, generate_one, score_best_label, write_predictions
 from src.model.train import FinancialNarrativeDataset, tokenize_prompt_completion
 from src.utils.structured_output import parse_outlook
 
@@ -25,8 +25,8 @@ class TinyTokenizer:
 
 def test_tokenization_masks_prompt_labels() -> None:
     tokenizer = TinyTokenizer()
-    prompt = "[TICKER: SPY]\n[NEXT DAY OUTLOOK]\n[SENTIMENT]\n[DIRECTION]\n[NARRATIVE]\n"
-    completion = "[SENTIMENT=positive]\n[DIRECTION=up]\n[NARRATIVE]\n- Market rallies"
+    prompt = "[TICKER: SPY]\n[NEXT DAY OUTLOOK]\nSentiment:"
+    completion = " positive\nDirection: up\nNews:\n- Market rallies"
 
     encoded = tokenize_prompt_completion(prompt, completion, tokenizer, max_length=160)
     prompt_length = len(tokenizer.encode(prompt))
@@ -82,7 +82,7 @@ def test_generate_one_returns_only_generated_text() -> None:
 
 def test_parse_outlook_supports_tagged_and_legacy_formats() -> None:
     tagged = parse_outlook("[SENTIMENT=positive]\n[DIRECTION=up]\n[NARRATIVE]\n- Market rallies")
-    legacy = parse_outlook("Sentiment: negative\nDirection: down\nNarrative:\n- Market falls")
+    legacy = parse_outlook("Sentiment: negative\nDirection: down\nNews:\n- Market falls")
 
     assert tagged == {
         "sentiment": "positive",
@@ -96,6 +96,33 @@ def test_parse_outlook_supports_tagged_and_legacy_formats() -> None:
     }
 
 
+class ScoringTokenizer(TinyTokenizer):
+    def encode(self, text: str, add_special_tokens: bool = False) -> list[int]:
+        del add_special_tokens
+        mapping = {" good": [10], " bad": [20]}
+        return mapping.get(text, [2, *mapping.get(text[-5:], [30])])
+
+
+class ScoringModel:
+    def __call__(self, input_ids: torch.Tensor):
+        batch, seq_len = input_ids.shape
+        logits = torch.full((batch, seq_len, 64), -10.0)
+        logits[:, :, 10] = 5.0
+        logits[:, :, 20] = 1.0
+        return type("Output", (), {"logits": logits})
+
+
+def test_score_best_label_uses_closed_options() -> None:
+    label = score_best_label(
+        model=ScoringModel(),
+        tokenizer=ScoringTokenizer(),
+        prompt="prompt",
+        labels=["bad", "good"],
+    )
+
+    assert label == "good"
+
+
 def test_write_predictions_jsonl() -> None:
     path = ROOT / "outputs" / "generations" / "test_predictions.jsonl"
     prediction = {
@@ -105,8 +132,8 @@ def test_write_predictions_jsonl() -> None:
         "prompt": "prompt",
         "real_news": "real",
         "generated_news": "generated",
-        "real_outlook": "[SENTIMENT=positive]\n[DIRECTION=up]\n[NARRATIVE]\nreal",
-        "generated_outlook": "[SENTIMENT=positive]\n[DIRECTION=up]\n[NARRATIVE]\ngenerated",
+        "real_outlook": "Sentiment: positive\nDirection: up\nNews:\nreal",
+        "generated_outlook": "Sentiment: positive\nDirection: up\nNews:\ngenerated",
         "real_sentiment_label": "positive",
         "generated_sentiment_label": "positive",
         "real_direction_label": "up",

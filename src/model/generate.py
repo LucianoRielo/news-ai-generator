@@ -8,7 +8,7 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from src.model.train import load_jsonl
-from src.utils.structured_output import parse_outlook
+from src.utils.structured_output import DIRECTION_LABELS, SENTIMENT_LABELS, parse_outlook
 from src.utils.tickers import prediction_ticker
 
 
@@ -44,15 +44,33 @@ def generate_predictions(
     examples = load_jsonl(test_path)
     predictions = []
     for example in examples:
-        generated = generate_one(
+        sentiment = score_best_label(
             model=model,
             tokenizer=tokenizer,
             prompt=example["prompt"],
+            labels=sorted(SENTIMENT_LABELS),
+            device=device,
+        )
+        direction_prompt = f"{example['prompt']} {sentiment}\nDirection:"
+        direction = score_best_label(
+            model=model,
+            tokenizer=tokenizer,
+            prompt=direction_prompt,
+            labels=sorted(DIRECTION_LABELS),
+            device=device,
+        )
+        narrative_prompt = f"{direction_prompt} {direction}\nNews:\n"
+        generated = generate_one(
+            model=model,
+            tokenizer=tokenizer,
+            prompt=narrative_prompt,
             generation_config=generation_config,
             device=device,
         )
-        real_outlook = parse_outlook(example["completion"])
-        generated_outlook = parse_outlook(generated)
+        real_text = f"Sentiment:{example['completion']}"
+        generated_text = f"Sentiment: {sentiment}\nDirection: {direction}\nNews:\n{generated}"
+        real_outlook = parse_outlook(real_text)
+        generated_outlook = parse_outlook(generated_text)
         predictions.append(
             {
                 "ticker": prediction_ticker(example),
@@ -61,17 +79,56 @@ def generate_predictions(
                 "prompt": example["prompt"],
                 "real_news": real_outlook["narrative"],
                 "generated_news": generated_outlook["narrative"],
-                "real_outlook": example["completion"],
-                "generated_outlook": generated,
+                "real_outlook": real_text,
+                "generated_outlook": generated_text,
                 "real_sentiment_label": example.get("target_sentiment_label", real_outlook["sentiment"]),
-                "generated_sentiment_label": generated_outlook["sentiment"],
+                "generated_sentiment_label": sentiment,
                 "real_direction_label": example.get("target_direction_label", real_outlook["direction"]),
-                "generated_direction_label": generated_outlook["direction"],
+                "generated_direction_label": direction,
             }
         )
 
     write_predictions(predictions, output_path)
     return predictions
+
+
+def score_best_label(
+    model: Any,
+    tokenizer: Any,
+    prompt: str,
+    labels: list[str],
+    device: str = "cpu",
+) -> str:
+    """Choose the closed label with highest mean next-token log probability."""
+    scores = {label: score_continuation(model, tokenizer, prompt, f" {label}", device=device) for label in labels}
+    return max(scores, key=scores.get)
+
+
+def score_continuation(
+    model: Any,
+    tokenizer: Any,
+    prompt: str,
+    continuation: str,
+    device: str = "cpu",
+) -> float:
+    prompt_ids = tokenizer.encode(prompt, add_special_tokens=False)
+    continuation_ids = tokenizer.encode(continuation, add_special_tokens=False)
+    input_ids = torch.tensor([prompt_ids + continuation_ids], dtype=torch.long, device=device)
+    if not continuation_ids:
+        return float("-inf")
+
+    with torch.no_grad():
+        logits = model(input_ids=input_ids).logits
+
+    log_probs = torch.log_softmax(logits[:, :-1, :], dim=-1)
+    target_ids = input_ids[:, 1:]
+    start = max(len(prompt_ids) - 1, 0)
+    end = start + len(continuation_ids)
+    continuation_log_probs = log_probs[:, start:end, :].gather(
+        2,
+        target_ids[:, start:end].unsqueeze(-1),
+    )
+    return float(continuation_log_probs.mean().item())
 
 
 def generate_one(

@@ -324,5 +324,4 @@ def timed_stage(stage_name: str, logger: Any, callback: Any) -> float:
 
 
 if __name__ == "__main__":
-    time.sleep(60*60*2)  # Ensure any previous logs are flushed before starting
     main()

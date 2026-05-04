@@ -241,17 +241,15 @@ Cada paso tiene: **objetivo**, **acciones**, **testing automatizado** y **testin
      - 2023-05-14: Broad market sentiment improves after inflation data...
 
      [NEXT DAY OUTLOOK]
-     [SENTIMENT]
-     [DIRECTION]
-     [NARRATIVE]
+     Sentiment:
      ```
 
 **Formato del completion:**
 
      ```
-     [SENTIMENT=positive]
-     [DIRECTION=up]
-     [NARRATIVE]
+      positive
+     Direction: up
+     News:
      - Broad market sentiment improves after inflation data...
      - ETF inflows continue as investors rotate into large caps...
      ```

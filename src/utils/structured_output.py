@@ -31,12 +31,12 @@ def parse_outlook(text: str) -> dict[str, str]:
 def format_outlook(sentiment: str, direction: str, narrative: str) -> str:
     return "\n".join(
         [
-            f"[SENTIMENT={sentiment}]",
-            f"[DIRECTION={direction}]",
-            "[NARRATIVE]",
+            f" {sentiment}",
+            f"Direction: {direction}",
+            "News:",
             narrative.strip(),
         ]
-    ).strip()
+    ).rstrip()
 
 
 def direction_to_signal(label: str) -> int:
@@ -67,6 +67,10 @@ def _extract_narrative(text: str) -> str:
     if tag_match:
         return tag_match.group(1).strip()
 
+    news_match = re.search(r"(?ims)^\s*News\s*:\s*(.*)$", text)
+    if news_match:
+        return news_match.group(1).strip()
+
     match = re.search(r"(?ims)^\s*Narrative\s*:\s*(.*)$", text)
     if match:
         return match.group(1).strip()
@@ -74,6 +78,8 @@ def _extract_narrative(text: str) -> str:
     lines = []
     for line in text.splitlines():
         if re.match(r"(?i)^\s*(Sentiment|Direction)\s*:", line):
+            continue
+        if re.match(r"(?i)^\s*News\s*:", line):
             continue
         if re.match(r"(?i)^\s*\[(SENTIMENT|DIRECTION|NARRATIVE)(\s*=.*)?\]\s*$", line):
             continue

@@ -8,11 +8,14 @@ ventana previa `t-k..t`.
 El completion entrenado tiene este formato:
 
 ```text
-[SENTIMENT=positive|neutral|negative]
-[DIRECTION=up|flat|down]
-[NARRATIVE]
+ positive|neutral|negative
+Direction: up|flat|down
+News:
 - ...
 ```
+
+Durante inferencia, `Sentiment` y `Direction` se eligen por scoring entre
+opciones cerradas; la narrativa se genera despues condicionada por esas labels.
 
 ## Setup
 
