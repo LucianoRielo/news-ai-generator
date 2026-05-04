@@ -8,6 +8,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
+from src.utils.structured_output import direction_to_signal
+
 
 FINANCIAL_COLUMNS = [
     "ticker",
@@ -16,6 +18,8 @@ FINANCIAL_COLUMNS = [
     "target_market_date",
     "real_label",
     "generated_label",
+    "target_direction_label",
+    "generated_direction_label",
     "real_signal",
     "generated_signal",
     "actual_direction",
@@ -80,8 +84,17 @@ def build_financial_metrics(semantic: pd.DataFrame, market: pd.DataFrame) -> pd.
     merged = merged.sort_values("prediction_order").reset_index(drop=True)
     merged["target_market_date"] = merged["Date"]
 
+    if "target_direction_label" not in merged.columns:
+        merged["target_direction_label"] = ""
+    if "generated_direction_label" not in merged.columns:
+        merged["generated_direction_label"] = ""
+
     merged["real_signal"] = merged["real_label"].map(label_to_signal)
-    merged["generated_signal"] = merged["generated_label"].map(label_to_signal)
+    generated_direction_signal = merged["generated_direction_label"].map(direction_to_signal)
+    merged["generated_signal"] = generated_direction_signal.where(
+        merged["generated_direction_label"].fillna("").astype(str).str.len() > 0,
+        merged["generated_label"].map(label_to_signal),
+    )
     merged["actual_direction"] = merged["direction"].map(lambda value: 1 if int(value) == 1 else -1)
     merged["actual_return_1d"] = merged["return_1d"]
     merged["generated_direction_correct"] = merged["generated_signal"] == merged["actual_direction"]

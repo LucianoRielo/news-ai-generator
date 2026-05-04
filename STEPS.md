@@ -205,7 +205,7 @@ Cada paso tiene: **objetivo**, **acciones**, **testing automatizado** y **testin
 
 ### Paso 3 — Construcción del dataset de entrenamiento
 
-**Objetivo:** generar `data/processed/train.jsonl`, `val.jsonl`, `test.jsonl` con pares `(prompt, completion)` listos para fine-tuning.
+**Objetivo:** generar `data/processed/train.jsonl`, `val.jsonl`, `test.jsonl` con pares `(prompt, completion)` listos para fine-tuning. El completion ahora es un outlook estructurado con sentimiento, direccion y narrativa.
 
 **Estado actual:** implementado y validado.
 
@@ -214,7 +214,7 @@ Cada paso tiene: **objetivo**, **acciones**, **testing automatizado** y **testin
 1. Implementar `src/data/build_dataset.py` con la función `build_dataset(news_df, market_df, ticker, k, split_ratios, output_dir, ...)` que:
    - Agrupa noticias por día.
    - Para cada día `t`, arma un prompt con features de mercado y noticias previas de la ventana `t-k..t`.
-   - Usa como completion las noticias del día calendario `t+1`, concatenadas como lista.
+   - Usa como completion un outlook del día calendario `t+1`: `Sentiment`, `Direction` y `Narrative`.
    - Usa titulares limpios como texto principal (`include_body: false`) para reducir boilerplate y ruido de artículos largos.
    - Normaliza caracteres raros a ASCII legible.
    - Limita el tamaño del texto para que GPT-2 pueda entrenar dentro de 1024 tokens:
@@ -223,7 +223,7 @@ Cada paso tiene: **objetivo**, **acciones**, **testing automatizado** y **testin
      - `max_completion_news: 3`
      - `include_body: false`
    - Hace split temporal, nunca random: 70% train, 15% val, 15% test.
-   - Guarda JSONL con campos `prompt`, `completion`, `date_t`, `date_t1`.
+   - Guarda JSONL con campos `prompt`, `completion`, `date_t`, `date_t1`, `ticker`, `target_sentiment_label`, `target_direction_label`.
 2. Implementar `scripts/02_build_dataset.py` para leer `data/raw/news.csv` y `data/raw/market.csv`, construir los splits y guardarlos en `data/processed/`.
 
 **Formato del prompt:**
@@ -240,7 +240,20 @@ Cada paso tiene: **objetivo**, **acciones**, **testing automatizado** y **testin
      - 2023-05-13: Investors rotate into S&P 500 ETFs...
      - 2023-05-14: Broad market sentiment improves after inflation data...
 
-     [NEXT DAY NEWS]
+     [NEXT DAY OUTLOOK]
+     [SENTIMENT]
+     [DIRECTION]
+     [NARRATIVE]
+     ```
+
+**Formato del completion:**
+
+     ```
+     [SENTIMENT=positive]
+     [DIRECTION=up]
+     [NARRATIVE]
+     - Broad market sentiment improves after inflation data...
+     - ETF inflows continue as investors rotate into large caps...
      ```
 
 **Testing automatizado (`tests/test_dataset.py`):**
@@ -343,7 +356,7 @@ Cada paso tiene: **objetivo**, **acciones**, **testing automatizado** y **testin
 **Testing automatizado (`tests/test_model.py`):**
 
 - Verificar que `predictions.jsonl` existe y tiene tantas líneas como el test set
-- Verificar que cada línea tiene los campos: `date_t`, `date_t1`, `prompt`, `real_news`, `generated_news`
+- Verificar que cada línea tiene los campos: `date_t`, `date_t1`, `prompt`, `real_news`, `generated_news`, labels reales/generadas y outlooks completos
 - Verificar que `generated_news` no está vacío y no es idéntico al prompt
 
 **Testing manual realizado:**

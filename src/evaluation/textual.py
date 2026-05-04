@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +11,8 @@ from rouge_score import rouge_scorer
 
 from src.utils.tickers import prediction_ticker
 
+
+logger = logging.getLogger("news_ai_generator")
 
 TEXTUAL_COLUMNS = [
     "ticker",
@@ -40,16 +43,19 @@ def evaluate_textual(
 
     bert_precision = bert_recall = bert_f1 = [None] * len(predictions)
     if compute_bertscore and predictions:
-        precision, recall, f1 = bert_score(
-            candidates,
-            references,
-            model_type=bertscore_model,
-            lang="en",
-            verbose=False,
-        )
-        bert_precision = precision.tolist()
-        bert_recall = recall.tolist()
-        bert_f1 = f1.tolist()
+        try:
+            precision, recall, f1 = bert_score(
+                candidates,
+                references,
+                model_type=bertscore_model,
+                lang="en",
+                verbose=False,
+            )
+            bert_precision = precision.tolist()
+            bert_recall = recall.tolist()
+            bert_f1 = f1.tolist()
+        except Exception as exc:
+            logger.warning("BERTScore failed; continuing with ROUGE-only textual metrics: %r", exc)
 
     for prediction, rouge, bp, br, bf in zip(predictions, rouge_values, bert_precision, bert_recall, bert_f1):
         rows.append(

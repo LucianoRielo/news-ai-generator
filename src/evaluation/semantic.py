@@ -31,6 +31,11 @@ SEMANTIC_COLUMNS = [
     "real_label",
     "generated_label",
     "sentiment_match",
+    "target_sentiment_label",
+    "structured_generated_label",
+    "structured_sentiment_match",
+    "target_direction_label",
+    "generated_direction_label",
     "real_net_sentiment",
     "generated_net_sentiment",
     "kl_divergence",
@@ -139,6 +144,15 @@ def build_semantic_metrics(
                 "real_label": real_label,
                 "generated_label": generated_label,
                 "sentiment_match": real_label == generated_label,
+                "target_sentiment_label": prediction.get("real_sentiment_label", ""),
+                "structured_generated_label": prediction.get("generated_sentiment_label", ""),
+                "structured_sentiment_match": (
+                    prediction.get("real_sentiment_label", "")
+                    == prediction.get("generated_sentiment_label", "")
+                    and bool(prediction.get("generated_sentiment_label", ""))
+                ),
+                "target_direction_label": prediction.get("real_direction_label", ""),
+                "generated_direction_label": prediction.get("generated_direction_label", ""),
                 "real_net_sentiment": real_net,
                 "generated_net_sentiment": generated_net,
                 "kl_divergence": _kl_divergence(real_probs, generated_probs),
@@ -167,6 +181,7 @@ def summarize_semantic(metrics: pd.DataFrame) -> dict[str, float]:
         "mean_kl_divergence": float(metrics["kl_divergence"].mean()),
         "net_sentiment_pearson": float(pearson),
         "neutral_baseline_accuracy": float(neutral_baseline),
+        "structured_sentiment_match_accuracy": _optional_mean(metrics, "structured_sentiment_match"),
     }
 
 
@@ -239,3 +254,12 @@ def _kl_divergence(
 def _load_predictions(path: str | Path) -> list[dict[str, Any]]:
     with Path(path).open("r", encoding="utf-8") as file:
         return [json.loads(line) for line in file if line.strip()]
+
+
+def _optional_mean(metrics: pd.DataFrame, column: str) -> float:
+    if column not in metrics:
+        return 0.0
+    active = metrics[metrics[column].notna()]
+    if active.empty:
+        return 0.0
+    return float(active[column].mean())

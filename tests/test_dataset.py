@@ -71,6 +71,15 @@ def test_build_dataset_writes_temporal_splits() -> None:
     assert "[TICKER: SPY]" in first["prompt"]
     assert "[PRICE_CHANGE:" in first["prompt"]
     assert "[PREVIOUS NEWS]" in first["prompt"]
+    assert "[NEXT DAY OUTLOOK]" in first["prompt"]
+    assert "[SENTIMENT]" in first["prompt"]
+    assert "[DIRECTION]" in first["prompt"]
+    assert "[NARRATIVE]" in first["prompt"]
+    assert "[SENTIMENT=" in first["completion"]
+    assert "[DIRECTION=" in first["completion"]
+    assert "[NARRATIVE]" in first["completion"]
+    assert first["target_sentiment_label"] in {"negative", "neutral", "positive"}
+    assert first["target_direction_label"] in {"down", "flat", "up"}
     assert first["completion"]
     assert max(len(row["prompt"] + row["completion"]) for rows in splits.values() for row in rows) < 4096
     assert max(row["date_t1"] for row in splits["train"]) < min(row["date_t1"] for row in splits["val"])
@@ -134,6 +143,7 @@ def test_build_dataset_keeps_tickers_separate() -> None:
     examples = [example for split in splits.values() for example in split]
     assert {example["ticker"] for example in examples} == {"SPY", "QQQ"}
     assert all(f"[TICKER: {example['ticker']}]" in example["prompt"] for example in examples)
+    assert all(example["target_direction_label"] == "up" for example in examples)
     assert not any("QQQ headline" in example["prompt"] for example in examples if example["ticker"] == "SPY")
     assert not any("SPY headline" in example["prompt"] for example in examples if example["ticker"] == "QQQ")
 

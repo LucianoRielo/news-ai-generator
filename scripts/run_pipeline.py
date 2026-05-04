@@ -6,6 +6,8 @@ from datetime import datetime
 from pathlib import Path
 from time import perf_counter
 from typing import Any
+# importo time para sleep
+import time
 
 import yaml
 
@@ -322,4 +324,5 @@ def timed_stage(stage_name: str, logger: Any, callback: Any) -> float:
 
 
 if __name__ == "__main__":
+    time.sleep(60*60*2)  # Ensure any previous logs are flushed before starting
     main()

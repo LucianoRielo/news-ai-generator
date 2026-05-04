@@ -7,6 +7,7 @@ import torch
 
 from src.model.generate import PREDICTION_FIELDS, generate_one, write_predictions
 from src.model.train import FinancialNarrativeDataset, tokenize_prompt_completion
+from src.utils.structured_output import parse_outlook
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,17 +25,17 @@ class TinyTokenizer:
 
 def test_tokenization_masks_prompt_labels() -> None:
     tokenizer = TinyTokenizer()
-    prompt = "[TICKER: SPY]\n[NEXT DAY NEWS]\n"
-    completion = "- Market rallies"
+    prompt = "[TICKER: SPY]\n[NEXT DAY OUTLOOK]\n[SENTIMENT]\n[DIRECTION]\n[NARRATIVE]\n"
+    completion = "[SENTIMENT=positive]\n[DIRECTION=up]\n[NARRATIVE]\n- Market rallies"
 
-    encoded = tokenize_prompt_completion(prompt, completion, tokenizer, max_length=64)
+    encoded = tokenize_prompt_completion(prompt, completion, tokenizer, max_length=160)
     prompt_length = len(tokenizer.encode(prompt))
 
     assert encoded["labels"][:prompt_length] == [-100] * prompt_length
     assert any(label != -100 for label in encoded["labels"][prompt_length:])
-    assert len(encoded["input_ids"]) == 64
-    assert len(encoded["attention_mask"]) == 64
-    assert len(encoded["labels"]) == 64
+    assert len(encoded["input_ids"]) == 160
+    assert len(encoded["attention_mask"]) == 160
+    assert len(encoded["labels"]) == 160
 
 
 def test_dataset_returns_model_ready_tensors() -> None:
@@ -79,6 +80,22 @@ def test_generate_one_returns_only_generated_text() -> None:
     assert generated == "generated headline"
 
 
+def test_parse_outlook_supports_tagged_and_legacy_formats() -> None:
+    tagged = parse_outlook("[SENTIMENT=positive]\n[DIRECTION=up]\n[NARRATIVE]\n- Market rallies")
+    legacy = parse_outlook("Sentiment: negative\nDirection: down\nNarrative:\n- Market falls")
+
+    assert tagged == {
+        "sentiment": "positive",
+        "direction": "up",
+        "narrative": "- Market rallies",
+    }
+    assert legacy == {
+        "sentiment": "negative",
+        "direction": "down",
+        "narrative": "- Market falls",
+    }
+
+
 def test_write_predictions_jsonl() -> None:
     path = ROOT / "outputs" / "generations" / "test_predictions.jsonl"
     prediction = {
@@ -88,6 +105,12 @@ def test_write_predictions_jsonl() -> None:
         "prompt": "prompt",
         "real_news": "real",
         "generated_news": "generated",
+        "real_outlook": "[SENTIMENT=positive]\n[DIRECTION=up]\n[NARRATIVE]\nreal",
+        "generated_outlook": "[SENTIMENT=positive]\n[DIRECTION=up]\n[NARRATIVE]\ngenerated",
+        "real_sentiment_label": "positive",
+        "generated_sentiment_label": "positive",
+        "real_direction_label": "up",
+        "generated_direction_label": "up",
     }
 
     write_predictions([prediction], path)

@@ -49,12 +49,20 @@ def test_semantic_metrics_from_probabilities() -> None:
             "date_t1": "2024-01-02",
             "real_news": "SPY rises after strong earnings",
             "generated_news": "SPY climbs as investors turn optimistic",
+            "real_sentiment_label": "positive",
+            "generated_sentiment_label": "positive",
+            "real_direction_label": "up",
+            "generated_direction_label": "up",
         },
         {
             "date_t": "2024-01-02",
             "date_t1": "2024-01-03",
             "real_news": "SPY falls as risk appetite weakens",
             "generated_news": "SPY remains steady in mixed trading",
+            "real_sentiment_label": "negative",
+            "generated_sentiment_label": "neutral",
+            "real_direction_label": "down",
+            "generated_direction_label": "flat",
         },
     ]
     real_probs = [
@@ -72,9 +80,12 @@ def test_semantic_metrics_from_probabilities() -> None:
     assert len(metrics) == 2
     assert metrics.loc[0, "real_label"] == "positive"
     assert metrics.loc[1, "generated_label"] == "neutral"
+    assert metrics.loc[0, "structured_sentiment_match"]
+    assert metrics.loc[0, "generated_direction_label"] == "up"
     assert metrics["kl_divergence"].ge(0).all()
     assert 0 <= summary["sentiment_match_accuracy"] <= 1
     assert summary["sentiment_match_accuracy"] == 0.5
+    assert summary["structured_sentiment_match_accuracy"] == 0.5
     assert -1 <= summary["net_sentiment_pearson"] <= 1
 
 
@@ -103,18 +114,21 @@ def test_financial_metrics_join_sentiment_with_market_direction() -> None:
                 "date_t1": "2024-01-02",
                 "real_label": "positive",
                 "generated_label": "positive",
+                "generated_direction_label": "up",
             },
             {
                 "date_t": "2024-01-02",
                 "date_t1": "2024-01-06",
                 "real_label": "negative",
                 "generated_label": "neutral",
+                "generated_direction_label": "flat",
             },
             {
                 "date_t": "2024-01-03",
                 "date_t1": "2024-01-04",
                 "real_label": "negative",
                 "generated_label": "negative",
+                "generated_direction_label": "down",
             },
         ]
     )
@@ -150,6 +164,7 @@ def test_financial_metrics_handles_interleaved_multi_ticker_dates() -> None:
                 "date_t1": "2024-03-01",
                 "real_label": "positive",
                 "generated_label": "positive",
+                "generated_direction_label": "up",
             },
             {
                 "ticker": "QQQ",
@@ -157,6 +172,7 @@ def test_financial_metrics_handles_interleaved_multi_ticker_dates() -> None:
                 "date_t1": "2024-01-02",
                 "real_label": "negative",
                 "generated_label": "negative",
+                "generated_direction_label": "down",
             },
             {
                 "ticker": "SPY",
@@ -164,6 +180,7 @@ def test_financial_metrics_handles_interleaved_multi_ticker_dates() -> None:
                 "date_t1": "2024-01-03",
                 "real_label": "positive",
                 "generated_label": "positive",
+                "generated_direction_label": "up",
             },
             {
                 "ticker": "QQQ",
@@ -171,6 +188,7 @@ def test_financial_metrics_handles_interleaved_multi_ticker_dates() -> None:
                 "date_t1": "2024-04-01",
                 "real_label": "negative",
                 "generated_label": "negative",
+                "generated_direction_label": "down",
             },
         ]
     )

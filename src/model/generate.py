@@ -8,10 +8,24 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from src.model.train import load_jsonl
+from src.utils.structured_output import parse_outlook
 from src.utils.tickers import prediction_ticker
 
 
-PREDICTION_FIELDS = ["ticker", "date_t", "date_t1", "prompt", "real_news", "generated_news"]
+PREDICTION_FIELDS = [
+    "ticker",
+    "date_t",
+    "date_t1",
+    "prompt",
+    "real_news",
+    "generated_news",
+    "real_outlook",
+    "generated_outlook",
+    "real_sentiment_label",
+    "generated_sentiment_label",
+    "real_direction_label",
+    "generated_direction_label",
+]
 
 
 def generate_predictions(
@@ -37,14 +51,22 @@ def generate_predictions(
             generation_config=generation_config,
             device=device,
         )
+        real_outlook = parse_outlook(example["completion"])
+        generated_outlook = parse_outlook(generated)
         predictions.append(
             {
                 "ticker": prediction_ticker(example),
                 "date_t": example["date_t"],
                 "date_t1": example["date_t1"],
                 "prompt": example["prompt"],
-                "real_news": example["completion"],
-                "generated_news": generated,
+                "real_news": real_outlook["narrative"],
+                "generated_news": generated_outlook["narrative"],
+                "real_outlook": example["completion"],
+                "generated_outlook": generated,
+                "real_sentiment_label": example.get("target_sentiment_label", real_outlook["sentiment"]),
+                "generated_sentiment_label": generated_outlook["sentiment"],
+                "real_direction_label": example.get("target_direction_label", real_outlook["direction"]),
+                "generated_direction_label": generated_outlook["direction"],
             }
         )
 

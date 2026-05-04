@@ -113,7 +113,7 @@ def build_report_markdown(
             "## Metodo",
             "",
             "- Formato de entrada: ticker, fecha, retorno diario, volumen relativo, RSI y noticias previas.",
-            "- Target: titulares/noticias del dia calendario siguiente.",
+            "- Target: outlook estructurado del dia siguiente con sentimiento, direccion y narrativa.",
             "- Entrenamiento: causal language modeling con perdida enmascarada sobre el prompt.",
             f"- Modelo base: `{model['base_model']}`",
             f"- Epocas: `{model['train']['num_train_epochs']}`",
@@ -141,6 +141,10 @@ def build_report_markdown(
             _markdown_table(
                 [
                     ("Sentiment match accuracy", semantic_summary.get("sentiment_match_accuracy")),
+                    (
+                        "Structured sentiment match accuracy",
+                        semantic_summary.get("structured_sentiment_match_accuracy"),
+                    ),
                     ("Neutral baseline accuracy", semantic_summary.get("neutral_baseline_accuracy")),
                     ("Mean KL divergence", semantic_summary.get("mean_kl_divergence")),
                     ("Net sentiment Pearson", semantic_summary.get("net_sentiment_pearson")),
@@ -183,7 +187,7 @@ def build_report_markdown(
             "- GPT-2 small tiene capacidad limitada y tiende a generar titulares genericos.",
             "- El target usa titulares agregados por dia, no articulos completos curados.",
             "- FinBERT mide tono financiero, pero no garantiza causalidad ni prediccion de precio.",
-            "- La metrica financiera usa una regla simple de sentimiento a long/short/hold.",
+            "- La metrica financiera usa la direccion estructurada generada cuando esta disponible.",
             "- La muestra de test es chica para concluir robustez estadistica.",
             "",
             "## Proximos Experimentos",
@@ -214,7 +218,8 @@ def _select_examples(
             merge_keys = ["date_t", "date_t1"]
             if "ticker" in merged.columns and "ticker" in frame.columns:
                 merge_keys = ["ticker", *merge_keys]
-            merged = merged.merge(frame, on=merge_keys, how="left", suffixes=("", "_metric"))
+            metric_frame = _drop_duplicate_merge_columns(frame, merged, merge_keys)
+            merged = merged.merge(metric_frame, on=merge_keys, how="left")
 
     examples = []
     picks = [
@@ -233,6 +238,17 @@ def _select_examples(
     if not examples:
         examples.extend(_format_example("Ejemplo del test set", merged.iloc[0]))
     return examples
+
+
+def _drop_duplicate_merge_columns(
+    frame: pd.DataFrame,
+    merged: pd.DataFrame,
+    merge_keys: list[str],
+) -> pd.DataFrame:
+    duplicate_columns = set(frame.columns).intersection(merged.columns).difference(merge_keys)
+    if not duplicate_columns:
+        return frame
+    return frame.drop(columns=sorted(duplicate_columns))
 
 
 def _evaluated_tickers(predictions: list[dict[str, Any]]) -> list[str]:
@@ -275,6 +291,7 @@ def _semantic_summary(metrics: pd.DataFrame) -> dict[str, float]:
         pearson = metrics["real_net_sentiment"].corr(metrics["generated_net_sentiment"])
     return {
         "sentiment_match_accuracy": float(metrics["sentiment_match"].mean()),
+        "structured_sentiment_match_accuracy": _mean_bool(metrics, "structured_sentiment_match"),
         "neutral_baseline_accuracy": float((metrics["real_label"] == "neutral").mean()),
         "mean_kl_divergence": float(metrics["kl_divergence"].mean()),
         "net_sentiment_pearson": 0.0 if pd.isna(pearson) else float(pearson),

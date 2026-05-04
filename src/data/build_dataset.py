@@ -8,9 +8,65 @@ from typing import Any
 
 import pandas as pd
 
+from src.utils.structured_output import format_outlook
 
-REQUIRED_EXAMPLE_FIELDS = ["prompt", "completion", "date_t", "date_t1", "ticker"]
+
+REQUIRED_EXAMPLE_FIELDS = [
+    "prompt",
+    "completion",
+    "date_t",
+    "date_t1",
+    "ticker",
+    "target_sentiment_label",
+    "target_direction_label",
+]
 MARKET_FEATURES = ["return_1d", "volume_ratio", "RSI"]
+POSITIVE_TERMS = {
+    "beat",
+    "beats",
+    "bullish",
+    "gain",
+    "gains",
+    "growth",
+    "higher",
+    "improve",
+    "improves",
+    "optimistic",
+    "outperform",
+    "rally",
+    "rallies",
+    "rebound",
+    "record",
+    "rise",
+    "rises",
+    "strong",
+    "surge",
+    "surges",
+    "up",
+}
+NEGATIVE_TERMS = {
+    "bearish",
+    "concern",
+    "concerns",
+    "decline",
+    "declines",
+    "drop",
+    "drops",
+    "fall",
+    "falls",
+    "fear",
+    "fears",
+    "lower",
+    "miss",
+    "misses",
+    "pressure",
+    "risk",
+    "selloff",
+    "slump",
+    "weak",
+    "weaker",
+    "warning",
+}
 
 
 def build_dataset(
@@ -67,6 +123,10 @@ def _build_examples_for_ticker(
         if date_t1 not in news_by_day or date_t not in market_by_day:
             continue
 
+        target_market_row = _target_market_row(date_t1, market_by_day)
+        if target_market_row is None:
+            continue
+
         context_dates = _context_dates(date_t, news_by_day.keys(), k)
         if not context_dates:
             continue
@@ -79,7 +139,15 @@ def _build_examples_for_ticker(
             news_by_day=news_by_day,
             max_news_per_day=max_news_per_day,
         )
-        completion = _format_completion(news_by_day[date_t1], max_completion_news=max_completion_news)
+        target_news = news_by_day[date_t1]
+        target_sentiment_label = _infer_sentiment_label(target_news)
+        target_direction_label = _infer_direction_label(target_market_row)
+        narrative = _format_narrative(target_news, max_completion_news=max_completion_news)
+        completion = format_outlook(
+            sentiment=target_sentiment_label,
+            direction=target_direction_label,
+            narrative=narrative,
+        )
         if not completion:
             continue
 
@@ -90,6 +158,8 @@ def _build_examples_for_ticker(
                 "completion": completion,
                 "date_t": date_t,
                 "date_t1": date_t1,
+                "target_sentiment_label": target_sentiment_label,
+                "target_direction_label": target_direction_label,
             }
         )
     return examples
@@ -154,12 +224,51 @@ def _format_prompt(
         for item in news_by_day[context_date][:max_news_per_day]:
             lines.append(f"- {context_date}: {item}")
 
-    lines.extend(["", "[NEXT DAY NEWS]"])
+    lines.extend(["", "[NEXT DAY OUTLOOK]", "[SENTIMENT]", "[DIRECTION]", "[NARRATIVE]"])
     return "\n".join(lines)
 
 
-def _format_completion(news_items: list[str], max_completion_news: int) -> str:
+def _format_narrative(news_items: list[str], max_completion_news: int) -> str:
     return "\n".join(f"- {item}" for item in news_items[:max_completion_news]).strip()
+
+
+def _target_market_row(
+    date_t1: str,
+    market_by_day: dict[str, dict[str, Any]],
+    tolerance_days: int = 3,
+) -> dict[str, Any] | None:
+    target = pd.Timestamp(date_t1)
+    for offset in range(tolerance_days + 1):
+        candidate = (target + pd.Timedelta(days=offset)).strftime("%Y-%m-%d")
+        if candidate in market_by_day:
+            return market_by_day[candidate]
+    return None
+
+
+def _infer_direction_label(market_row: dict[str, Any], flat_threshold: float = 0.001) -> str:
+    return_1d = pd.to_numeric(market_row.get("return_1d"), errors="coerce")
+    if not pd.isna(return_1d):
+        if return_1d > flat_threshold:
+            return "up"
+        if return_1d < -flat_threshold:
+            return "down"
+        return "flat"
+
+    direction = pd.to_numeric(market_row.get("direction"), errors="coerce")
+    if pd.isna(direction):
+        return "flat"
+    return "up" if int(direction) == 1 else "down"
+
+
+def _infer_sentiment_label(news_items: list[str]) -> str:
+    tokens = re.findall(r"[a-z]+", " ".join(news_items).lower())
+    positive = sum(token in POSITIVE_TERMS for token in tokens)
+    negative = sum(token in NEGATIVE_TERMS for token in tokens)
+    if positive > negative:
+        return "positive"
+    if negative > positive:
+        return "negative"
+    return "neutral"
 
 
 def _context_dates(date_t: str, dates: Any, k: int) -> list[str]:

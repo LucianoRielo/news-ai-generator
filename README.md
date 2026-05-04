@@ -2,8 +2,17 @@
 
 Proyecto de NLP para fine-tunear GPT-2 en narrativas financieras de mercado. La
 configuracion inicial usa noticias asociadas a `SPY` y `QQQ` en FNSPID y precios
-de esos ETFs para generar la narrativa del dia `t+1` usando una ventana previa
-`t-k..t`.
+de esos ETFs para generar un outlook estructurado del dia `t+1` usando una
+ventana previa `t-k..t`.
+
+El completion entrenado tiene este formato:
+
+```text
+[SENTIMENT=positive|neutral|negative]
+[DIRECTION=up|flat|down]
+[NARRATIVE]
+- ...
+```
 
 ## Setup
 
