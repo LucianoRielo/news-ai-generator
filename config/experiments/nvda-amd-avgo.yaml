@@ -1,0 +1,68 @@
+project:
+  name: news-ai-generator
+  seed: 42
+
+data:
+  dataset_name: beachside1234/FNSPID
+  dataset_source: huggingface
+  ticker: NVDA
+  tickers:
+    - NVDA
+    - AMD
+    - AVGO
+  start_date: "2017-08-18"
+  end_date: "2023-12-16"
+  context_window_days: 3
+  max_news_per_day: 3
+  max_text_chars: 180
+  max_completion_news: 3
+  include_body: false
+  split_ratios:
+    train: 0.70
+    val: 0.15
+    test: 0.15
+  raw_news_path: data/raw/news.csv
+  raw_market_path: data/raw/market.csv
+  processed_dir: data/processed
+
+model:
+  base_model: gpt2
+  output_dir: outputs/models/gpt2-financial-narrative-clean
+  max_length: 1024
+  train:
+    num_train_epochs: 3
+    per_device_train_batch_size: 2
+    per_device_eval_batch_size: 2
+    gradient_accumulation_steps: 4
+    learning_rate: 0.00005
+    warmup_steps: 20
+    eval_steps: 50
+    save_steps: 50
+    logging_steps: 10
+    save_total_limit: 2
+  generation:
+    do_sample: false
+    temperature: 0.65
+    top_p: 0.9
+    repetition_penalty: 1.25
+    min_new_tokens: 30
+    max_new_tokens: 120
+
+evaluation:
+  finbert_model: ProsusAI/finbert
+  bertscore_model: distilbert-base-uncased
+  reports_dir: outputs/reports
+  predictions_path: outputs/generations/predictions.jsonl
+  textual_metrics_path: outputs/reports/textual_metrics.csv
+  semantic_metrics_path: outputs/reports/semantic_metrics.csv
+  semantic_confusion_matrix_path: outputs/reports/semantic_confusion_matrix.png
+  financial_metrics_path: outputs/reports/financial_metrics.csv
+  financial_confusion_matrix_path: outputs/reports/financial_confusion_matrix.png
+  report_path: outputs/reports/REPORT.md
+  sentiment_batch_size: 8
+  compute_bertscore: true
+
+logging:
+  level: INFO
+  dir: outputs/logs
+  file: pipeline.log

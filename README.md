@@ -74,6 +74,12 @@ Para correr el experimento de semiconductores `NVDA + AMD`:
 python -m scripts.run_pipeline --config config/experiments/nvda-amd.yaml --name nvda-amd
 ```
 
+Para correr el experimento de semiconductores `NVDA + AMD + AVGO`:
+
+```bash
+python -m scripts.run_pipeline --config config/experiments/nvda-amd-avgo.yaml --name nvda-amd-avgo
+```
+
 Para regenerar solo el reporte con los outputs actuales:
 
 ```bash
