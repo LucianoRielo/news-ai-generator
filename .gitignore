@@ -60,7 +60,11 @@ outputs/logs/*.log
 outputs/models/*
 outputs/generations/*
 outputs/reports/*
-runs/
+runs/*
+!runs/*/
+runs/*/*
+!runs/*/reports/
+!runs/*/reports/**
 !outputs/models/.gitkeep
 !outputs/generations/.gitkeep
 !outputs/reports/.gitkeep
