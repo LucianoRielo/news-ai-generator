@@ -65,6 +65,8 @@ runs/*
 runs/*/*
 !runs/*/reports/
 !runs/*/reports/**
+!runs/*/generations/
+!runs/*/generations/**
 !outputs/models/.gitkeep
 !outputs/generations/.gitkeep
 !outputs/reports/.gitkeep
