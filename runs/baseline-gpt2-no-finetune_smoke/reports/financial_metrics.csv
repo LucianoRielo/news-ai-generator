@@ -1,0 +1,4 @@
+ticker,date_t,date_t1,target_market_date,real_label,generated_label,target_direction_label,generated_direction_label,real_signal,generated_signal,actual_direction,actual_return_1d,generated_direction_correct,real_direction_correct,abs_return_1d,volatility_bucket
+AMD,2023-04-18,2023-04-19,2023-04-19,negative,positive,,up,-1,1,1,0.0017821749196356,True,False,0.0017821749196356,low
+NVDA,2023-04-18,2023-04-19,2023-04-19,positive,negative,,up,1,1,1,0.0095420515672839,True,True,0.0095420515672839,high
+AMD,2023-04-19,2023-04-20,2023-04-20,neutral,positive,,up,0,1,1,0.0018901285782826,True,False,0.0018901285782826,high

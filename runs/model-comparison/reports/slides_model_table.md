@@ -1,0 +1,17 @@
+# Tabla final para slides
+
+Esta tabla esta reducida para presentacion. No incluye todas las metricas, solo las necesarias para sostener la narrativa.
+
+| Run | Rol | Tickers | Test | ROUGE-L | BERTScore F1 | Sent. match | Neutral base | Dir. acc. | Coverage | p vs 0.5 | Best ppl | Lectura |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| SPY/QQQ baseline | Primer pipeline completo | SPY,QQQ | 303 | 0.062 | 0.732 | 0.386 | 0.495 | 0.528 | 0.472 | 0.557 | 14.659 | Punto de partida razonable con ETFs amplios. |
+| GPT-2 no fine-tune | Baseline de modelo | NVDA,AMD | 326 | 0.040 |  | 0.273 | 0.583 | 0.549 | 1.000 | 0.085 |  | Acierta direccion pese a baja calidad semantica; alerta sobre la metrica financiera. |
+| NVDA single | Mejor BERTScore | NVDA | 133 | 0.070 | 0.744 | 0.346 | 0.421 | 0.462 | 0.591 | 0.572 | 29.648 | Mayor similitud semantica, pero peor direccion. |
+| NVDA + AMD | Mejor equilibrio | NVDA,AMD | 326 | 0.074 | 0.738 | 0.442 | 0.537 | 0.530 | 0.361 | 0.579 | 19.292 | Mejor balance textual/semantico; modelo general mas defendible. |
+| NVDA direction features | Mejor metrica financiera | NVDA | 133 | 0.063 | 0.734 | 0.346 | 0.421 | 0.556 | 1.000 | 0.225 | 16.500 | Mayor directional accuracy y coverage, sin significancia fuerte. |
+
+Lectura general:
+
+- El fine-tuning mejora adaptacion textual/semantica frente a GPT-2 base.
+- La mejor directional accuracy no prueba predictividad robusta.
+- El baseline sin fine-tuning muestra que la metrica financiera necesita controles adicionales.
