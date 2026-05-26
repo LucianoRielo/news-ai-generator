@@ -371,17 +371,18 @@ Esta simplificacion permite medir directional accuracy.
 Resultados clave:
 
 - GPT-2 sin fine-tuning:
+
   - ROUGE-L `0.040`
   - sentiment match `0.273`
   - directional accuracy `0.549`
-
 - NVDA + AMD:
+
   - ROUGE-L `0.074`
   - BERTScore F1 `0.738`
   - sentiment match `0.442`
   - directional accuracy `0.530`
-
 - NVDA direction features:
+
   - directional accuracy `0.556`
   - coverage `1.0`
   - p-value aprox. `0.225`
@@ -439,4 +440,3 @@ Para metrica financiera: `NVDA direction features`, pero aclarando que no es con
 ### Cual es la conclusion final?
 
 El fine-tuning ayuda a adaptar GPT-2 al lenguaje financiero, pero la utilidad financiera no queda demostrada de forma robusta. El aporte fuerte es la evaluacion multicapa.
-
